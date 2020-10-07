@@ -6,6 +6,7 @@ import socket
 import time
 import urequests
 import uos
+from purpleair import PurpleAir
 
 try:
     directoryContents = uos.listdir('.')
@@ -81,10 +82,12 @@ class AQNetwork:
     url = ""
     createdAt = 0
     rawAQ = 0
+    convertedAQ = 0
     aqStatus = AirQualityStatus()
+    purpleAir = PurpleAir()
     
     def __init__(self, configFilePath):
-        # try:
+        try:
             with open('config.json', 'r') as file:
                 data = json.load(file)
                 print('config.json data: ', data)
@@ -94,8 +97,8 @@ class AQNetwork:
                     'password': data['password']
                 }
                 self.wifi = WiFi(wifiConfig)
-        # except:
-        #    print('Could not load or parse config.json')
+        except:
+           print('Could not load or parse config.json')
 
     def parseStats(self, value):
         data = json.loads(value)
@@ -110,9 +113,17 @@ class AQNetwork:
         jssn = response.json()
         self.createdAt = jssn["results"][0]["LastSeen"]
         self.rawAQ = self.parseStats(jssn["results"][0]["Stats"])
-        self.aqStatus = self.aqValue(self.rawAQ)
+        self.convertedAQ = self.purpleAir.aqFromPM(self.rawAQ)
+        self.aqStatus = self.aqValue(self.convertedAQ)
         self.wifi.shutdown()
 
+    # Good                              0 - 50           0.0 - 15.0         0.0 – 12.0
+    # Moderate                         51 - 100          >15 - 40        12.1 – 35.4
+    # Unhealthy for Sensitive Groups  101 – 150         > 40 – 65          35.5 – 55.4
+    # Unhealthy                       151 – 200         > 65 – 150       55.5 – 150.4
+    # Very Unhealthy                  201 – 300         > 150 – 250     150.5 – 250.4
+    # Hazardous                       301 – 400         > 250 – 350     250.5 – 350.4
+    # Hazardous                       401 – 500         > 350 – 500     350.5 – 500
     def aqValue(self, rawAQ):
         self.aqStatus = 0
         if rawAQ <= 0:
@@ -161,7 +172,7 @@ while True:
         aqColor = aqs.colorValue(aqn.aqStatus)
         thisDatum = "{0},{1},{2}"
         dstar[0] = aqColor
-        writeLog(thisDatum.format(aqn.createdAt, aqn.rawAQ, aqn.aqStatus))
+        writeLog(thisDatum.format(aqn.createdAt, aqn.convertedAQ, aqn.aqStatus))
         time.sleep(sleepTime)
     except:
         print('error,error,error')
