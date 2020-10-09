@@ -126,7 +126,7 @@ class AQNetwork:
     # Hazardous                       401 – 500         > 350 – 500     350.5 – 500
     def aqValue(self, rawAQ):
         self.aqStatus = 0
-        if rawAQ <= 0:
+        if rawAQ < 0:
             self.aqStatus = 0
             return self.aqStatus
         if rawAQ <= 12:
